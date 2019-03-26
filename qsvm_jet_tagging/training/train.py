@@ -1,6 +1,6 @@
 """Training
 
-These routines handle training a ML model.
+These routines handle training the ML models that are studied (quantum and classical for comparison).
 """
 
 import argparse
@@ -18,8 +18,11 @@ from qiskit_aqua.components.feature_maps import SecondOrderExpansion
 from qiskit_aqua.input import SVMInput
 from qiskit_aqua.utils import (map_label_to_class_name,
                                split_dataset_to_data_and_labels)
+from sklearn import svm
 from sklearn.externals import joblib
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 def get_train_test_datasets(features=['mass', 'd2'], train_size=100, test_size=900, seed=1, style='qiskit'):
@@ -54,18 +57,53 @@ def get_train_test_datasets(features=['mass', 'd2'], train_size=100, test_size=9
 
 
 def train_qsvm_kernel(training_dataset, testing_dataset=None, seed=10598):
-    feature_dim = 2
+    assert (training_dataset.shape[0] >
+            0), f'training_dataset must not be empty.'
+    assert (testing_dataset is None or testing_dataset.shape[0] >
+            0), f'If a testing dataset is provided, it must not be empty.'
+
+    # Map the features to qubits.
+    feature_dim = training_dataset.shape[1]
     feature_map = SecondOrderExpansion(
         num_qubits=feature_dim, depth=2, entanglement='linear')
+
+    # Build the qsvm.
     qsvm = QSVMKernel(feature_map, training_dataset,
                       test_dataset=testing_dataset)
 
+    # Run the qsvm on the backend (for now, a simulator).
     backend = Aer.get_backend('qasm_simulator')
     quantum_instance = QuantumInstance(
         backend, shots=1024, seed=seed, seed_mapper=seed)
     result = qsvm.run(quantum_instance, print_info=True)
 
     return (qsvm, result)
+
+
+def train_sklearn_svm(X_train, y_train, X_test, y_test):
+
+    # Use a default SVM.
+    svc = svm.SVC()
+
+    # Scale the inputs before applying the SVM.
+    pipeline = Pipeline(steps=[('scaler', StandardScaler()), ('svc', svc)])
+
+    # Apply a grid search to tune hyperparameters.
+    C_choices = [2**p for p in range(-5, 15, 2)]
+    gamma_choices = [2**p for p in range(-15, 3, 2)]
+    poly_grid = {'svc__kernel': ['poly'], 'svc__degree': [
+        2, 3], 'svc__gamma': gamma_choices, 'svc__C': C_choices}
+    rbf_grid = {'svc__kernel': ['rbf'],
+                'svc__gamma': gamma_choices, 'svc__C': C_choices}
+    param_grid = [poly_grid, rbf_grid]
+    cv = GridSearchCV(pipeline, param_grid, n_jobs=-1)
+    cv.fit(X_train, y_train)
+
+    # Create a 'result' dict similar to qiskit.
+    result = {}
+    result['training accuracy'] = cv.score(X_test, y_test)
+
+    return (cv, result)
 
 
 def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=900, seed=10598):
@@ -81,7 +119,9 @@ def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=9
         model, result = train_qsvm_kernel(
             training_dataset, testing_dataset, seed=seed)
     elif model_name == 'sklearn_svm':
-        raise NotImplementedError()
+        X_train, y_train, X_test, y_test = get_train_test_datasets(
+            features, train_size, test_size, seed=seed, style='sklearn')
+        model, result = train_sklearn_svm(X_train, y_train, X_test, y_test)
     elif model_name == 'qsvm_variational':
         raise NotImplementedError()
 
@@ -92,16 +132,18 @@ def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=9
     # Save configuration settings in the run dir.
     config = ConfigParser()
     config['ML Settings'] = {}
-    config['ML Settings']['model_name'] = model_name
+    config['ML Settings']['model name'] = model_name
     config['ML Settings']['features'] = utils.list_to_str(features)
     config['ML Settings']['train size'] = str(train_size)
     config['ML Settings']['test size'] = str(test_size)
     config['ML Settings']['seed'] = str(seed)
     utils.save_run_config(config, run_path)
 
-    # Save the model in the run dir.
+    # Save the model and result in the run dir.
     model_path = os.path.join(run_path, 'model.joblib')
+    result_path = os.path.join(run_path, 'result.joblib')
     joblib.dump(model, model_path)
+    joblib.dump(result, result_path)
 
 
 def main():
