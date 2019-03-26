@@ -74,8 +74,6 @@ def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=9
     assert train_size > 0, f'train_size must be greater than 0, but is "{train_size}".'
     assert test_size > 0, f'test_size must be greater than 0, but is "{test_size}".'
 
-    import pdb
-    pdb.set_trace()
     # Train the model.
     if model_name == 'qsvm_kernel':
         training_dataset, testing_dataset = get_train_test_datasets(
