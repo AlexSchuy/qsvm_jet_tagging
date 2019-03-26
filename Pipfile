@@ -12,6 +12,12 @@ pyjet = "*"
 progressbar2 = "*"
 pandas = "*"
 pre-commit = "*"
+jupyter = "*"
+sklearn = "*"
+seaborn = "*"
+matplotlib = "*"
+qiskit = {extras = ["visualization"],version = "*"}
+qiskit-aqua = "*"
 
 [requires]
 python_version = "3.6"

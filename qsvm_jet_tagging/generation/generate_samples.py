@@ -1,4 +1,11 @@
+"""Sample Generation
+
+These routines handle generating, storing, and retrieving sample data. The data
+is higgs/QCD jet kinematics, and is generated using pythia and fastjet.
+"""
+
 import argparse
+import glob
 import operator
 import os
 import time
@@ -9,6 +16,7 @@ import numpy as np
 import pandas as pd
 import progressbar
 import pyjet
+from common import utils
 from numpythia import PDG_ID, STATUS, Pythia
 
 
@@ -78,7 +86,10 @@ def CalcEECorr(jet, n=1, beta=1.0):
 
 def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
     # If the samples already exist in a file, simply return them.
-    filename = os.path.join('samples', f'{gen_type}_{n}.pkl')
+    code_dir = utils.get_source_path()
+    project_dir = utils.get_project_path()
+    filename = os.path.join(project_dir, 'samples', f'{gen_type}_{n}.pkl')
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
     if not recalculate and os.path.exists(filename):
         print(f'Loading samples from file {filename}')
         return pd.read_pickle(filename)
@@ -87,14 +98,14 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
     print(f'Generating {gen_type} with {n} events.')
     assert gen_type == 'qcd' or gen_type == 'higgs', f'gen_type must be one of [qcd, higgs] but was {gen_type}.'
 
-    pythia_config = os.path.join('pythia_config', f'{gen_type}.cmnd')
+    pythia_config = os.path.join(code_dir, 'pythia_config', f'{gen_type}.cmnd')
     pythia = Pythia(config=pythia_config, random_state=1)
 
     final_jets = []
     for event in progressbar.progressbar(pythia(events=n), max_value=n):
 
         # Run jet finding.
-        jets = pyjet.cluster(event.all(STATUS == 1), R=1,
+        jets = pyjet.cluster(event.all((STATUS == 1) & (STATUS == 1)), R=1.0,
                              p=-1, ep=True).inclusive_jets()
 
         found_jet = None
@@ -117,7 +128,7 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
                 if dR < 1.0:
                     if debug:
                         print('Found Higgs Jet')
-                        found_jet = jet
+                    found_jet = jet
         else:
             found_jet = jets[0]
 
@@ -148,6 +159,20 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
     return final_jets
 
 
+def load_samples(gen_type='qcd', n=1000):
+    # Find the largest sample file
+    code_dir = utils.get_source_path()
+    project_dir = utils.get_project_path()
+    pattern = os.path.join(project_dir, 'samples', f'{gen_type}_*.pkl')
+    sample_paths = glob.glob(pattern)
+    max_size = max(int(os.path.splitext(os.path.split(p)[1])[
+                   0].split('_')[1]) for p in sample_paths)
+    if max_size >= n:
+        samples = generate_samples(gen_type, max_size)
+        return samples.iloc[:n]
+    return generate_samples(gen_type, n)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Generate samples (jet kinematics from qcd or higgs events).')
@@ -157,5 +182,8 @@ if __name__ == '__main__':
         'n', type=int, help='The number of events to generate.')
     parser.add_argument('--recalculate', action='store_true',
                         help='If set, ignore cached files and regenerate.')
+    parser.add_argument('--debug', action='store_true',
+                        help='If set, print debug info.')
     args = parser.parse_args()
-    generate_samples(args.gen_type, args.n, recalculate=args.recalculate)
+    generate_samples(args.gen_type, args.n,
+                     recalculate=args.recalculate, debug=args.debug)
