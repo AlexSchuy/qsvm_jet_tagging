@@ -11,6 +11,7 @@ numpythia = "*"
 pyjet = "*"
 progressbar2 = "*"
 pandas = "*"
+pre-commit = "*"
 
 [requires]
 python_version = "3.6"

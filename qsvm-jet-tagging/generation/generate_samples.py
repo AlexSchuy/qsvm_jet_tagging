@@ -1,75 +1,80 @@
-import os
 import argparse
 import operator
-import numpy as np
+import os
 import time
+from functools import lru_cache, reduce
 from itertools import combinations
-from functools import reduce, lru_cache
+
+import numpy as np
 import pandas as pd
-
-from numpythia import Pythia, STATUS, PDG_ID
-import pyjet
 import progressbar
+import pyjet
+from numpythia import PDG_ID, STATUS, Pythia
 
-def CalcDeltaR(j1,j2):
+
+def CalcDeltaR(j1, j2):
     eta1 = j1.eta
     phi1 = j1.phi
     eta2 = j2.eta
     phi2 = j2.phi
-    
+
     dEta = eta1-eta2
     dPhi = abs(phi1-phi2)
     if dPhi > np.pi:
         dPhi = 2*np.pi - dPhi
-        
+
     dR = (dPhi**2 + dEta**2)**0.5
-        
+
     return dR
-    
+
 # energy correlators
 # https://arxiv.org/pdf/1411.0665.pdf
+
+
 def CalcEECorr(jet, n=1, beta=1.0):
-    
+
     assert n == 2 or n == 3, f'n must be in [2, 3] but is {n}'
-    
+
     jet_particles = jet.constituents()
-    
-    if len(jet_particles)<n:
+
+    if len(jet_particles) < n:
         return -1
 
     currentSum = 0
-    
-    if n==2:
+
+    if n == 2:
         for p1, p2 in combinations(jet_particles, 2):
             # get the terms of the triplet at hand
-            pt1  = p1.pt
-            pt2  = p2.pt
-            dr12 = CalcDeltaR(p1,p2)
+            pt1 = p1.pt
+            pt2 = p2.pt
+            dr12 = CalcDeltaR(p1, p2)
 
             # calculate the partial contribution
             thisterm = pt1*pt2 * (dr12)**beta
 
             # sum it up
             currentSum += thisterm
-                    
+
         eec = currentSum/(jet.pt)**2
-       
-    elif n==3:
-        dr = {(p1,p2): CalcDeltaR(p1,p2) for p1,p2 in combinations(jet_particles, 2)}
+
+    elif n == 3:
+        dr = {(p1, p2): CalcDeltaR(p1, p2)
+              for p1, p2 in combinations(jet_particles, 2)}
         for p1, p2, p3 in combinations(jet_particles, 3):
             # get the terms of the triplet at hand
-            dr12 = dr[(p1,p2)]
-            dr13 = dr[(p1,p3)]
-            dr23 = dr[(p2,p3)]
-            
+            dr12 = dr[(p1, p2)]
+            dr13 = dr[(p1, p3)]
+            dr23 = dr[(p2, p3)]
+
             # calculate the partial contribution
             thisterm = p1.pt*p2.pt*p3.pt * (dr12*dr13*dr23)**beta
-           
+
             # sum it up
             currentSum += thisterm
-                
+
         eec = currentSum/(jet.pt)**3
     return eec
+
 
 def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
     # If the samples already exist in a file, simply return them.
@@ -84,12 +89,13 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
 
     pythia_config = os.path.join('pythia_config', f'{gen_type}.cmnd')
     pythia = Pythia(config=pythia_config, random_state=1)
-    
+
     final_jets = []
     for event in progressbar.progressbar(pythia(events=n), max_value=n):
 
         # Run jet finding.
-        jets = pyjet.cluster(event.all(STATUS == 1), R=1, p=-1, ep=True).inclusive_jets()
+        jets = pyjet.cluster(event.all(STATUS == 1), R=1,
+                             p=-1, ep=True).inclusive_jets()
 
         found_jet = None
 
@@ -125,11 +131,13 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
         ee2 = CalcEECorr(found_jet, n=2, beta=1.0)
         ee3 = CalcEECorr(found_jet, n=3, beta=1.0)
         d2 = ee3/ee2**3
-        
-        final_jets.append([found_jet.pt, found_jet.eta, found_jet.phi, found_jet.mass, ee2, ee3, d2])
+
+        final_jets.append([found_jet.pt, found_jet.eta,
+                           found_jet.phi, found_jet.mass, ee2, ee3, d2])
 
     # Save the final jets to a file.
-    final_jets = pd.DataFrame(data=final_jets, columns=['pt', 'eta', 'phi', 'mass', 'ee2', 'ee3', 'd2'])
+    final_jets = pd.DataFrame(data=final_jets, columns=[
+                              'pt', 'eta', 'phi', 'mass', 'ee2', 'ee3', 'd2'])
     final_jets.to_pickle(filename)
 
     print("==========================")
@@ -139,10 +147,15 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
 
     return final_jets
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate samples (jet kinematics from qcd or higgs events).')
-    parser.add_argument('gen_type', choices=['qcd', 'higgs'], help='The type of events to generate.')
-    parser.add_argument('n', type=int, help='The number of events to generate.')
-    parser.add_argument('--recalculate', action='store_true', help='If set, ignore cached files and regenerate.')
+    parser = argparse.ArgumentParser(
+        description='Generate samples (jet kinematics from qcd or higgs events).')
+    parser.add_argument('gen_type', choices=[
+                        'qcd', 'higgs'], help='The type of events to generate.')
+    parser.add_argument(
+        'n', type=int, help='The number of events to generate.')
+    parser.add_argument('--recalculate', action='store_true',
+                        help='If set, ignore cached files and regenerate.')
     args = parser.parse_args()
     generate_samples(args.gen_type, args.n, recalculate=args.recalculate)
