@@ -1,0 +1,10 @@
+Beams:idA = 2212
+Beams:idB = 2212
+Beams:eCM = 13000.
+ExtraDimensionsG*:gg2G* = on
+5100039:onMode = off
+5100039:onIfAny = 25
+25:onMode = off
+25:onIfAny = 5
+PartonLevel:ISR = off
+PartonLevel:MPI = off
