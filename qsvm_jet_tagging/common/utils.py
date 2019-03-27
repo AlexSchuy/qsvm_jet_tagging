@@ -8,6 +8,7 @@ import os
 from configparser import ConfigParser
 
 from sklearn.externals import joblib
+from training import qsvm_kernel
 
 
 def get_source_path():

@@ -51,4 +51,4 @@ class QSVMKernelClassifier(BaseEstimator, ClassifierMixin):
         return self.impl_.predict(X)
 
     def ret(self):
-        return self.impl_.ret()
+        return self.impl_.ret

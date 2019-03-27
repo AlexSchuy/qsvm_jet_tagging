@@ -5,7 +5,8 @@ These routines handle common input validation.
 
 
 FEATURES = ('pt', 'eta', 'phi', 'mass', 'ee2', 'ee3', 'd2')
-MODEL_NAMES = ('qsvm_kernel', 'qsvm_variational', 'sklearn_svm')
+MODEL_NAMES = ('qsvm_kernel', 'qsvm_variational',
+               'svm_classical', 'sklearn_svm')
 
 
 def model_name(model_name):

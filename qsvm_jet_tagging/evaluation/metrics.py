@@ -19,8 +19,8 @@ def print_metrics(run_path):
 
     # Print the testing accuracy of the model.
     testing_accuracy = result['testing_accuracy']
-    if model_name == 'qsvm_kernel':
-        pass
+    if model_name in ('qsvm_kernel', 'svm_classical'):
+        support = result['svm']['support_vectors'].shape[0]
     elif model_name == 'sklearn_svm':
         support = len(model.best_estimator_.named_steps['svc'].support_)
     print(f'\tTesting accuracy = {testing_accuracy}')

@@ -6,17 +6,19 @@ These routines handle training the ML models that are studied (quantum and class
 import argparse
 import logging
 import os
+import time
 from configparser import ConfigParser
 
 import numpy as np
 from common import utils, validate
 from generation.generate_samples import load_samples
-from qsvm_kernel import QSVMKernelClassifier
 from sklearn import svm
 from sklearn.externals import joblib
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from training.qsvm_kernel import QSVMKernelClassifier
+from training.svm_classical import SVMClassicalClassifier
 
 
 def get_train_test_datasets(features=['mass', 'd2'], train_size=100, test_size=900, seed=1, style='qiskit'):
@@ -50,6 +52,10 @@ def get_train_test_datasets(features=['mass', 'd2'], train_size=100, test_size=9
     return train_dataset, test_dataset
 
 
+def make_svm_classical(gamma=None):
+    return SVMClassicalClassifier(gamma)
+
+
 def make_qsvm_kernel(seed=10598):
     return QSVMKernelClassifier(seed)
 
@@ -81,6 +87,8 @@ def make_model(model_name):
         return make_sklearn_svm()
     elif model_name == 'qsvm_kernel':
         return make_qsvm_kernel()
+    elif model_name == 'svm_classical':
+        return make_svm_classical()
     else:
         raise NotImplementedError()
 
@@ -91,19 +99,27 @@ def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=9
     assert train_size > 0, f'train_size must be greater than 0, but is "{train_size}".'
     assert test_size > 0, f'test_size must be greater than 0, but is "{test_size}".'
 
-    import pdb
-    pdb.set_trace()
     # Train the model.
     X_train, y_train, X_test, y_test = get_train_test_datasets(
         features, train_size, test_size, seed=seed, style='sklearn')
     model = make_model(model_name)
+    start = time.time()
     model.fit(X_train, y_train)
+    print(f'Total training time: {time.time() - start} s')
+
+    # Get results.
     if model_name == 'sklearn_svm':
         # Create a 'result' dict similar to qiskit.
         result = {}
-        result['testing_accuracy'] = model.score(X_test, y_test)
     else:
         result = model.ret()
+
+    # Add testing accuracy to the results for convenience.
+    start = time.time()
+    import pdb
+    pdb.set_trace()
+    result['testing_accuracy'] = model.score(X_test, y_test)
+    print(f'Total testing time: {time.time() - start} s')
 
     # Create a run dir.
     run_path = utils.make_run_dir()
