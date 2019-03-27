@@ -11,13 +11,7 @@ from configparser import ConfigParser
 import numpy as np
 from common import utils, validate
 from generation.generate_samples import load_samples
-from qiskit import Aer
-from qiskit_aqua import QuantumInstance, run_algorithm, set_aqua_logging
-from qiskit_aqua.algorithms import QSVMKernel
-from qiskit_aqua.components.feature_maps import SecondOrderExpansion
-from qiskit_aqua.input import SVMInput
-from qiskit_aqua.utils import (map_label_to_class_name,
-                               split_dataset_to_data_and_labels)
+from qsvm_kernel import QSVMKernelClassifier
 from sklearn import svm
 from sklearn.externals import joblib
 from sklearn.model_selection import GridSearchCV, train_test_split
@@ -56,31 +50,11 @@ def get_train_test_datasets(features=['mass', 'd2'], train_size=100, test_size=9
     return train_dataset, test_dataset
 
 
-def train_qsvm_kernel(training_dataset, testing_dataset=None, seed=10598):
-    assert len(training_dataset) > 0 and all(
-        v.shape[0] > 0 for k, v in training_dataset.items()), f'training_dataset must not be empty.'
-    assert testing_dataset is None or (len(testing_dataset) > 0 and all(
-        v.shape[0] > 0 for k, v in testing_dataset.items())), f'If a testing dataset is provided, it must not be empty.'
-
-    # Map the features to qubits.
-    feature_dim = training_dataset['higgs'].shape[1]
-    feature_map = SecondOrderExpansion(
-        num_qubits=feature_dim, depth=2, entanglement='linear')
-
-    # Build the qsvm.
-    qsvm = QSVMKernel(feature_map, training_dataset,
-                      test_dataset=testing_dataset)
-
-    # Run the qsvm on the backend (for now, a simulator).
-    backend = Aer.get_backend('qasm_simulator')
-    quantum_instance = QuantumInstance(
-        backend, shots=1024, seed=seed, seed_mapper=seed)
-    result = qsvm.run(quantum_instance, print_info=True)
-
-    return (qsvm, result)
+def make_qsvm_kernel(seed=10598):
+    return QSVMKernelClassifier(seed)
 
 
-def train_sklearn_svm(X_train, y_train, X_test, y_test):
+def make_sklearn_svm():
 
     # Use a default SVM.
     svc = svm.SVC()
@@ -97,13 +71,18 @@ def train_sklearn_svm(X_train, y_train, X_test, y_test):
                 'svc__gamma': gamma_choices, 'svc__C': C_choices}
     param_grid = [poly_grid, rbf_grid]
     cv = GridSearchCV(pipeline, param_grid, n_jobs=-1)
-    cv.fit(X_train, y_train)
 
-    # Create a 'result' dict similar to qiskit.
-    result = {}
-    result['testing_accuracy'] = cv.score(X_test, y_test)
+    return cv
 
-    return (cv, result)
+
+def make_model(model_name):
+    validate.model_name(model_name)
+    if model_name == 'sklearn_svm':
+        return make_sklearn_svm()
+    elif model_name == 'qsvm_kernel':
+        return make_qsvm_kernel()
+    else:
+        raise NotImplementedError()
 
 
 def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=900, seed=10598):
@@ -112,18 +91,19 @@ def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=9
     assert train_size > 0, f'train_size must be greater than 0, but is "{train_size}".'
     assert test_size > 0, f'test_size must be greater than 0, but is "{test_size}".'
 
+    import pdb
+    pdb.set_trace()
     # Train the model.
-    if model_name == 'qsvm_kernel':
-        training_dataset, testing_dataset = get_train_test_datasets(
-            features, train_size, test_size, seed=seed, style='qiskit')
-        model, result = train_qsvm_kernel(
-            training_dataset, testing_dataset, seed=seed)
-    elif model_name == 'sklearn_svm':
-        X_train, y_train, X_test, y_test = get_train_test_datasets(
-            features, train_size, test_size, seed=seed, style='sklearn')
-        model, result = train_sklearn_svm(X_train, y_train, X_test, y_test)
-    elif model_name == 'qsvm_variational':
-        raise NotImplementedError()
+    X_train, y_train, X_test, y_test = get_train_test_datasets(
+        features, train_size, test_size, seed=seed, style='sklearn')
+    model = make_model(model_name)
+    model.fit(X_train, y_train)
+    if model_name == 'sklearn_svm':
+        # Create a 'result' dict similar to qiskit.
+        result = {}
+        result['testing_accuracy'] = model.score(X_test, y_test)
+    else:
+        result = model.ret()
 
     # Create a run dir.
     run_path = utils.make_run_dir()

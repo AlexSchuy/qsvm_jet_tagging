@@ -98,3 +98,7 @@ def most_recent_run_number():
 def most_recent_run_path():
     results_path = get_results_path()
     return max((os.path.join(results_path, d) for d in os.listdir(results_path) if os.path.isdir(os.path.join(results_path, d))), key=lambda f: int(os.path.basename(f)), default=None)
+
+
+def make_qiskit_style_dataset(X, y):
+    return {'0': X[y == 0], '1': X[y == 1]}
