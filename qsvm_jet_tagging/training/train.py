@@ -57,13 +57,13 @@ def get_train_test_datasets(features=['mass', 'd2'], train_size=100, test_size=9
 
 
 def train_qsvm_kernel(training_dataset, testing_dataset=None, seed=10598):
-    assert (training_dataset.shape[0] >
-            0), f'training_dataset must not be empty.'
-    assert (testing_dataset is None or testing_dataset.shape[0] >
-            0), f'If a testing dataset is provided, it must not be empty.'
+    assert len(training_dataset) > 0 and all(
+        v.shape[0] > 0 for k, v in training_dataset.items()), f'training_dataset must not be empty.'
+    assert testing_dataset is None or (len(testing_dataset) > 0 and all(
+        v.shape[0] > 0 for k, v in testing_dataset.items())), f'If a testing dataset is provided, it must not be empty.'
 
     # Map the features to qubits.
-    feature_dim = training_dataset.shape[1]
+    feature_dim = training_dataset['higgs'].shape[1]
     feature_map = SecondOrderExpansion(
         num_qubits=feature_dim, depth=2, entanglement='linear')
 
@@ -101,7 +101,7 @@ def train_sklearn_svm(X_train, y_train, X_test, y_test):
 
     # Create a 'result' dict similar to qiskit.
     result = {}
-    result['training accuracy'] = cv.score(X_test, y_test)
+    result['testing_accuracy'] = cv.score(X_test, y_test)
 
     return (cv, result)
 
