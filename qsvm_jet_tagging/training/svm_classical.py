@@ -1,3 +1,4 @@
+import numpy as np
 from common import utils
 from qiskit_aqua.algorithms import SVM_Classical
 from sklearn.base import BaseEstimator, ClassifierMixin

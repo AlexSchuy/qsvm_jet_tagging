@@ -18,6 +18,7 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from training.qsvm_kernel import QSVMKernelClassifier
+from training.qsvm_variational import QSVMVariationalClassifier
 from training.svm_classical import SVMClassicalClassifier
 
 
@@ -60,6 +61,10 @@ def make_qsvm_kernel(seed=10598):
     return QSVMKernelClassifier(seed)
 
 
+def make_qsvm_variational(seed=10598):
+    return QSVMVariationalClassifier(seed)
+
+
 def make_sklearn_svm():
 
     # Use a default SVM.
@@ -87,6 +92,8 @@ def make_model(model_name):
         return make_sklearn_svm()
     elif model_name == 'qsvm_kernel':
         return make_qsvm_kernel()
+    elif model_name == 'qsvm_variational':
+        return make_qsvm_variational()
     elif model_name == 'svm_classical':
         return make_svm_classical()
     else:
@@ -116,8 +123,6 @@ def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=9
 
     # Add testing accuracy to the results for convenience.
     start = time.time()
-    import pdb
-    pdb.set_trace()
     result['testing_accuracy'] = model.score(X_test, y_test)
     print(f'Total testing time: {time.time() - start} s')
 
@@ -136,10 +141,7 @@ def train_model(model_name, features=['mass', 'd2'], train_size=100, test_size=9
     utils.save_run_config(config, run_path)
 
     # Save the model and result in the run dir.
-    model_path = os.path.join(run_path, 'model.joblib')
-    result_path = os.path.join(run_path, 'result.joblib')
-    joblib.dump(model, model_path)
-    joblib.dump(result, result_path)
+    utils.save_model(model_name, model, result, run_path)
 
 
 def main():
