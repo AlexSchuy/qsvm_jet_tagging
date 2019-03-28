@@ -41,8 +41,6 @@ class QSVMVariationalClassifier(BaseEstimator, ClassifierMixin):
         self.impl_._quantum_instance = quantum_instance
 
     def fit(self, X, y):
-        import pdb
-        pdb.set_trace()
         # Build the model.
         self._build(X, y)
 

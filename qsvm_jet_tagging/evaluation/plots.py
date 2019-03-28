@@ -2,15 +2,16 @@
 
 These routines handle creating various plots that are useful for evaluation.
 """
-
 import argparse
 import logging
+import os
 
 import seaborn as sns
 import sklearn
-from common import utils
+from common import persistence, utils
 from matplotlib import pyplot as plt
 from training import train
+from training.data import get_train_test_datasets
 
 sns.set()
 
@@ -22,19 +23,20 @@ def plot_roc_curve(run_path):
     # Load from the run.
     model_name, features, train_size, test_size, seed = utils.load_run_config_settings(
         run_path)
-    model, result = utils.load_model(run_path)
-    _, _, X_test, y_test = train.get_train_test_datasets(
+    model, result = persistence.load_model(run_path)
+    _, _, X_test, y_test = get_train_test_datasets(
         features, train_size, test_size, seed, style='sklearn')
 
     # Plot ROC curve.
     y_score = model.decision_function(X_test)
     fpr, tpr, _ = sklearn.metrics.roc_curve(y_test, y_score)
-    plt.title('ROC Curve')
+    plt.title('ROC')
     plt.plot(fpr, tpr, 'b')
     plt.xlim([0, 1])
     plt.ylim([0, 1])
-    plt.ylabel('TPR')
-    plt.xlabel('FPR')
+    plt.ylabel('Signal Efficiency')
+    plt.xlabel('Background Efficiency')
+    plt.savefig(os.path.join(run_path, 'roc_curve.png'))
     plt.show()
 
 
@@ -43,8 +45,8 @@ def plot_confidence(run_path, use_training_data=False):
     # Load from the run.
     model_name, features, train_size, test_size, seed = utils.load_run_config_settings(
         run_path)
-    model, result = utils.load_model(run_path)
-    X_train, y_train, X_test, y_test = train.get_train_test_datasets(
+    model, result = persistence.load_model(run_path)
+    X_train, y_train, X_test, y_test = get_train_test_datasets(
         features, train_size, test_size, seed, style='sklearn')
 
     if use_training_data:
@@ -64,7 +66,8 @@ def plot_confidence(run_path, use_training_data=False):
     sns.distplot(confidence_signal, color='b', label='Higgs', kde=False)
     sns.distplot(confidence_background, color='r', label='QCD', kde=False)
     plt.legend()
-    plt.title(f'{model_name} Confidences')
+    plt.title('Scores')
+    plt.savefig(os.path.join(run_path, 'scores.png'))
     plt.show()
 
 

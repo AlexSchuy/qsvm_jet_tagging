@@ -6,10 +6,7 @@ get common paths and handling config files.
 import os
 from configparser import ConfigParser
 
-from sklearn.externals import joblib
-from training import qsvm_kernel
-from training.qsvm_variational import QSVMVariationalClassifier
-from training.train import get_train_test_datasets
+from common import validate
 
 
 def get_source_path():
@@ -57,35 +54,6 @@ def load_run_config_settings(run_path):
 def save_run_config(config, run_path):
     with open(os.path.join(run_path, 'run.ini'), 'w') as config_file:
         config.write(config_file)
-
-
-def load_model(run_path):
-    result_path = os.path.join(run_path, 'result.joblib')
-    model_name, features, train_size, test_size, seed = load_run_config_settings(
-        run_path)
-    if model_name == 'qsvm_variational':
-        model_path = os.path.join(run_path, 'model.npz')
-        model = QSVMVariationalClassifier(seed=seed)
-        X, y, _, _ = get_train_test_datasets(
-            features, train_size, test_size, seed, style='sklearn')
-        model.load_model(model_path, X, y)
-    else:
-        model_path = os.path.join(run_path, 'model.joblib')
-        model = joblib.load(model_path)
-    result = joblib.load(result_path)
-
-    return (model, result)
-
-
-def save_model(model_name, model, result, run_path):
-    result_path = os.path.join(run_path, 'result.joblib')
-    if model_name == 'qsvm_variational':
-        model_path = os.path.join(run_path, 'model.npz')
-        model.save_model(model_path)
-    else:
-        model_path = os.path.join(run_path, 'model.joblib')
-        joblib.dump(model, model_path)
-    joblib.dump(result, result_path)
 
 
 def list_to_str(l):

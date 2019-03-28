@@ -2,8 +2,9 @@ import argparse
 import logging
 import os
 
-from common import utils
+from common import persistence, utils
 from sklearn.externals import joblib
+from training.data import get_train_test_datasets
 
 
 def print_metrics(run_path):
@@ -15,7 +16,7 @@ def print_metrics(run_path):
         run_path)
 
     # Load the model and result from the run.
-    model, result = utils.load_model(run_path)
+    model, result = persistence.load_model(run_path)
 
     # Print the testing accuracy of the model.
     testing_accuracy = result['testing_accuracy']
@@ -27,6 +28,12 @@ def print_metrics(run_path):
     elif model_name == 'sklearn_svm':
         support = len(model.best_estimator_.named_steps['svc'].support_)
         print(f'\tsupport = {support}/{train_size}')
+
+    X_train, y_train, _, _ = get_train_test_datasets(
+        features, train_size, test_size, seed, style='sklearn')
+
+    training_accuracy = model.score(X_train, y_train)
+    print(f'\tTraining accuracy = {training_accuracy}')
 
 
 def main():
