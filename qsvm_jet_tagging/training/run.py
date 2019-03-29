@@ -91,7 +91,7 @@ class Run():
         result_path = os.path.join(self.run_path, 'result.joblib')
         self._result = joblib.load(result_path)
 
-    def _save_model(self):
+    def save(self):
         if self.model_name == 'qsvm_variational':
             model_path = os.path.join(self.run_path, 'model.npz')
             self._model.save_model(model_path)
@@ -129,7 +129,7 @@ class Run():
             self._model, self._result = train.train_model(**self.config)
             self.run_number = self._most_recent_run_number() + 1
             os.makedirs(self.run_path)
-            self._save_model()
+            self.save()
             index.add(self.run_number, self.config)
 
 

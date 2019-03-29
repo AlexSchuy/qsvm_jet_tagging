@@ -23,7 +23,12 @@ def print_metrics(run):
 
     X_train, y_train, _, _ = run.get_train_test_datasets()
 
-    training_accuracy = run.model.score(X_train, y_train)
+    if 'training_accuracy' not in run.result:
+        training_accuracy = run.model.score(X_train, y_train)
+        run.result['training_accuracy'] = training_accuracy
+        run.save()
+    else:
+        training_accuracy = run.result['training_accuracy']
     print(f'\tTraining accuracy = {training_accuracy}')
 
     print(f'\tTraining time = {run.result["training_time"]}')
