@@ -11,24 +11,16 @@ import sklearn
 from common import persistence, utils
 from matplotlib import pyplot as plt
 from training import train
-from training.data import get_train_test_datasets
+from training.run import Run
 
 sns.set()
 
 
-def plot_roc_curve(run_path):
+def plot_roc_curve(run):
 
-    logging.info(f'Drawing ROC curve for run at {run_path}')
+    _, _, X_test, y_test = run.get_train_test_datasets()
 
-    # Load from the run.
-    model_name, features, train_size, test_size, seed = utils.load_run_config_settings(
-        run_path)
-    model, result = persistence.load_model(run_path)
-    _, _, X_test, y_test = get_train_test_datasets(
-        features, train_size, test_size, seed, style='sklearn')
-
-    # Plot ROC curve.
-    y_score = model.decision_function(X_test)
+    y_score = run.model.decision_function(X_test)
     fpr, tpr, _ = sklearn.metrics.roc_curve(y_test, y_score)
     plt.title('ROC')
     plt.plot(fpr, tpr, 'b')
@@ -36,18 +28,15 @@ def plot_roc_curve(run_path):
     plt.ylim([0, 1])
     plt.ylabel('Signal Efficiency')
     plt.xlabel('Background Efficiency')
-    plt.savefig(os.path.join(run_path, 'roc_curve.png'))
+    plot_path = os.path.join(run.run_path, 'roc_curve.png')
+    plt.savefig(plot_path)
+    print(f'Saved roc curve plot at {plot_path}')
     plt.show()
 
 
-def plot_confidence(run_path, use_training_data=False):
+def plot_scores(run, use_training_data=False):
 
-    # Load from the run.
-    model_name, features, train_size, test_size, seed = utils.load_run_config_settings(
-        run_path)
-    model, result = persistence.load_model(run_path)
-    X_train, y_train, X_test, y_test = get_train_test_datasets(
-        features, train_size, test_size, seed, style='sklearn')
+    X_train, y_train, X_test, y_test = run.get_train_test_datasets()
 
     if use_training_data:
         X = X_train
@@ -56,18 +45,20 @@ def plot_confidence(run_path, use_training_data=False):
         X = X_test
         y = y_test
 
-    # Get confidence for signal/background
+    # Get scores for signal/background
     X_signal = X[y == 1]
     X_background = X[y == 0]
-    confidence_signal = model.decision_function(X_signal)
-    confidence_background = model.decision_function(X_background)
+    scores_signal = run.model.decision_function(X_signal)
+    scores_background = run.model.decision_function(X_background)
 
     # Make the two confidence plots.
-    sns.distplot(confidence_signal, color='b', label='Higgs', kde=False)
-    sns.distplot(confidence_background, color='r', label='QCD', kde=False)
+    sns.distplot(scores_signal, color='b', label='Higgs', kde=False)
+    sns.distplot(scores_background, color='r', label='QCD', kde=False)
     plt.legend()
     plt.title('Scores')
-    plt.savefig(os.path.join(run_path, 'scores.png'))
+    plot_path = os.path.join(run.run_path, 'scores.png')
+    plt.savefig(plot_path)
+    print(f'Saved score plot at {plot_path}.')
     plt.show()
 
 
@@ -83,14 +74,14 @@ def main():
     args = parser.parse_args()
 
     if args.run is None:
-        run_path = utils.most_recent_run_path()
+        run = Run.most_recent()
     else:
-        run_path = utils.get_run_path(args.run)
+        run_path = Run(args.run)
 
     if args.type == 'roc_curve':
-        plot_roc_curve(run_path)
-    elif args.type == 'confidence':
-        plot_confidence(run_path, args.use_training_data)
+        plot_roc_curve(run)
+    elif args.type == 'scores':
+        plot_scores(run, args.use_training_data)
 
 
 if __name__ == '__main__':

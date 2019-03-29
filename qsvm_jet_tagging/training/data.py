@@ -1,21 +1,25 @@
 import os
 
 import numpy as np
-from common import validate
+from common import utils, validate
 from generation.generate_samples import load_samples
 from sklearn.externals import joblib
 from sklearn.model_selection import train_test_split
 
 
-def get_train_test_datasets(features=['mass', 'd2'], train_size=100, test_size=900, seed=1, style='qiskit'):
-
-    validate.features(features)
+def get_train_test_datasets(features='mass,d2', train_size=100, test_size=900, seed=1, style='qiskit'):
     assert (train_size >
             0), f'train_size must be greater than 0, but is "{train_size}".'
     assert (
         test_size > 0), f'test_size must be greater than 0, but is "{test_size}".'
     assert style in [
         'qiskit', 'sklearn'], f'style must be "qiskit" or "sklearn" but was "{style}".'
+
+    if features == 'all':
+        features = validate.FEATURES
+    else:
+        features = utils.str_to_list(features)
+    validate.features(features)
 
     n = train_size + test_size
     X_background = load_samples(gen_type='qcd', n=n//2)[features].to_numpy()

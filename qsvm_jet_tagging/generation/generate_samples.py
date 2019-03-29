@@ -91,7 +91,8 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
     filename = os.path.join(project_dir, 'samples', f'{gen_type}_{n}.pkl')
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     if not recalculate and os.path.exists(filename):
-        print(f'Loading samples from file {filename}')
+        if debug:
+            print(f'Loading samples from file {filename}')
         return pd.read_pickle(filename)
 
     start = time.time()
