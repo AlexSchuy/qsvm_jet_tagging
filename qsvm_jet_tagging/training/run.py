@@ -43,7 +43,7 @@ class Run():
         return cls(run_number)
 
     def get_train_test_datasets(self, style='sklearn'):
-        return data.get_train_test_datasets(self.features, self.train_size, self.test_size, self.seed, style)
+        return data.get_train_test_datasets(self.features, self.train_size, self.test_size, self.seed, style, self.dataset)
 
     @property
     def run_path(self):
@@ -82,9 +82,7 @@ class Run():
             model_path = os.path.join(self.run_path, 'model.npz')
             self._model = train.make_qsvm_variational(
                 seed=self.seed, pca=self.pca)
-            X, y, _, _ = get_train_test_datasets(
-                self.features, self.train_size, self.test_size, self.seed, style='sklearn')
-            self._model.named_steps['model'].load_model(model_path, X, y)
+            self._model.named_steps['model'].load_model(model_path, dim=2)
         else:
             model_path = os.path.join(self.run_path, 'model.joblib')
             self._model = joblib.load(model_path)

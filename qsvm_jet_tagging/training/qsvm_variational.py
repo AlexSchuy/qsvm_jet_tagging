@@ -1,3 +1,4 @@
+import numpy as np
 from common import utils
 from qiskit import Aer
 from qiskit_aqua import QuantumInstance
@@ -60,6 +61,8 @@ class QSVMVariationalClassifier(BaseEstimator, ClassifierMixin):
     def save_model(self, file_path):
         self.impl_.save_model(file_path)
 
-    def load_model(self, file_path, X, y):
+    def load_model(self, file_path, dim):
+        X = np.zeros((2, dim))
+        y = np.array([0, 1])
         self._build(X, y)
         self.impl_.load_model(file_path)
