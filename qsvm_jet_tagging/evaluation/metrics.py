@@ -18,7 +18,7 @@ def print_metrics(run):
         support = run.result['svm']['support_vectors'].shape[0]
         print(f'\tsupport = {support}/{run.train_size}')
     elif run.model_name == 'sklearn_svm':
-        support = len(run.model.best_estimator_.named_steps['svc'].support_)
+        support = len(run.model.best_estimator_.named_steps['model'].support_)
         print(f'\tsupport = {support}/{run.train_size}')
 
     X_train, y_train, _, _ = run.get_train_test_datasets()

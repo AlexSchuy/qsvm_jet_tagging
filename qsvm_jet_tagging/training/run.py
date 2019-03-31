@@ -80,10 +80,11 @@ class Run():
         # issues.
         if self.model_name == 'qsvm_variational':
             model_path = os.path.join(self.run_path, 'model.npz')
-            self._model = QSVMVariationalClassifier(seed=seed)
+            self._model = train.make_qsvm_variational(
+                seed=self.seed, pca=self.pca)
             X, y, _, _ = get_train_test_datasets(
                 self.features, self.train_size, self.test_size, self.seed, style='sklearn')
-            self._model.load_model(model_path, X, y)
+            self._model.named_steps['model'].load_model(model_path, X, y)
         else:
             model_path = os.path.join(self.run_path, 'model.joblib')
             self._model = joblib.load(model_path)
@@ -94,7 +95,7 @@ class Run():
     def save(self):
         if self.model_name == 'qsvm_variational':
             model_path = os.path.join(self.run_path, 'model.npz')
-            self._model.save_model(model_path)
+            self._model.named_steps['model'].save_model(model_path)
         else:
             model_path = os.path.join(self.run_path, 'model.joblib')
             joblib.dump(self._model, model_path)

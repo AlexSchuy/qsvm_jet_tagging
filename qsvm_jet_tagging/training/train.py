@@ -16,72 +16,55 @@ from sklearn.decomposition import PCA
 from sklearn.externals import joblib
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from training.data import get_train_test_datasets
 from training.qsvm_kernel import QSVMKernelClassifier
 from training.qsvm_variational import QSVMVariationalClassifier
 from training.svm_classical import SVMClassicalClassifier
 
 
+def make_pipeline(model, model_scaler, pca, seed):
+    model_steps = [('model_scaler', model_scaler), ('model', model)]
+    if pca == 0:
+        pipeline = Pipeline(steps=model_steps)
+    else:
+        pca_steps = [('pca_scaler', StandardScaler()),
+                     ('pca', PCA(pca, random_state=seed))]
+        pca_steps.extend(model_steps)
+        pipeline = Pipeline(steps=pca_steps)
+    return pipeline
+
+
 def make_svm_classical(gamma=None, seed=10598, pca=0):
     svm = SVMClassicalClassifier(gamma)
-
-    if pca is 0:
-        pipeline = Pipeline(
-            steps=[('scaler', StandardScaler()), ('model', svm)])
-    else:
-        pipeline = Pipeline(steps=[('scaler', StandardScaler()), ('pca', PCA(
-            pca, random_state=seed)), ('model', svm)])
-
-    return pipeline
+    return make_pipeline(svm, StandardScaler(), pca, seed)
 
 
 def make_qsvm_kernel(seed=10598, pca=0):
     qsvm = QSVMKernelClassifier(seed)
-
-    if pca is 0:
-        pipeline = Pipeline(
-            steps=[('scaler', StandardScaler()), ('model', qsvm)])
-    else:
-        pipeline = Pipeline(steps=[('scaler', StandardScaler()), ('pca', PCA(
-            pca, random_state=seed)), ('model', qsvm)])
-
-    return pipeline
+    return make_pipeline(qsvm, MinMaxScaler((-1, 1)), pca, seed)
 
 
 def make_qsvm_variational(seed=10598, pca=0):
     qsvm = QSVMVariationalClassifier(seed)
-
-    if pca is 0:
-        pipeline = Pipeline(
-            steps=[('scaler', StandardScaler()), ('model', qsvm)])
-    else:
-        pipeline = Pipeline(steps=[('scaler', StandardScaler()), ('pca', PCA(
-            pca, random_state=seed)), ('model', qsvm)])
-
-    return pipeline
+    return make_pipeline(qsvm, MinMaxScaler((-1, 1)), pca, seed)
 
 
 def make_sklearn_svm(seed=10598, pca=0):
 
     # Use a default SVM.
     svc = svm.SVC()
-
-    if pca is 0:
-        pipeline = Pipeline(steps=[('scaler', StandardScaler()), ('svc', svc)])
-    else:
-        pipeline = Pipeline(steps=[('scaler', StandardScaler(
-        )), ('pca', PCA(pca, random_state=seed)), ('svc', svc)])
+    pipeline = make_pipeline(svc, StandardScaler(), pca, seed)
 
     # Apply a grid search to tune hyperparameters.
     C_choices = [2**p for p in range(-5, 15, 2)]
     gamma_choices = [2**p for p in range(-15, 3, 2)]
-    poly_grid = {'svc__kernel': ['poly'], 'svc__degree': [
-        2, 3], 'svc__gamma': gamma_choices, 'svc__C': C_choices}
-    rbf_grid = {'svc__kernel': ['rbf'],
-                'svc__gamma': gamma_choices, 'svc__C': C_choices}
+    poly_grid = {'model__kernel': ['poly'], 'model__degree': [
+        2, 3], 'model__gamma': gamma_choices, 'model__C': C_choices}
+    rbf_grid = {'model__kernel': ['rbf'],
+                'model__gamma': gamma_choices, 'model__C': C_choices}
     param_grid = [poly_grid, rbf_grid]
-    cv = GridSearchCV(pipeline, param_grid, n_jobs=16, cv=5, iid=False)
+    cv = GridSearchCV(pipeline, param_grid, n_jobs=-1, cv=5, iid=False)
 
     return cv
 
