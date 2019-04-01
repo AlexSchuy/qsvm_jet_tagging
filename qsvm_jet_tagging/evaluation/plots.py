@@ -43,6 +43,7 @@ def plot_roc_curve(run):
 def plot_scores(run, use_training_data=False):
 
     if 'scores_plot' in run.result:
+
         img = plt.imread(run.result['scores_plot'])
         plt.imshow(img)
     else:

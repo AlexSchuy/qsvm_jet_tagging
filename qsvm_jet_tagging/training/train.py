@@ -90,7 +90,7 @@ def train_model(model_name, features, train_size, test_size, seed, pca, dataset)
 
     # Train the model.
     X_train, y_train, X_test, y_test = get_train_test_datasets(
-        features, train_size, test_size, seed=seed, style='sklearn')
+        features, train_size, test_size, seed=seed, style='sklearn', dataset=dataset)
     model = make_model(model_name, seed=seed, pca=pca)
     start = time.time()
     model.fit(X_train, y_train)

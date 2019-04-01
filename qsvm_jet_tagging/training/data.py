@@ -8,7 +8,7 @@ from sklearn.externals import joblib
 from sklearn.model_selection import train_test_split
 
 
-def get_train_test_datasets(features='mass,d2', train_size=100, test_size=900, seed=1, style='qiskit', dataset='higgs_tagging'):
+def get_train_test_datasets(features='mass,d2', train_size=100, test_size=900, seed=10598, style='qiskit', dataset='higgs_tagging'):
     assert (train_size >
             0), f'train_size must be greater than 0, but is "{train_size}".'
     assert (
