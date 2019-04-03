@@ -3,8 +3,8 @@
 These routines handle common input validation.
 """
 
-
-FEATURES = ('pt', 'eta', 'phi', 'mass', 'ee2', 'ee3', 'd2')
+FEATURES = ['pt', 'eta', 'phi', 'mass', 'ee2', 'ee3', 'd2']
+FEATURE_CHOICES = ['all'] + FEATURES
 MODEL_NAMES = ('qsvm_kernel', 'qsvm_variational',
                'svm_classical', 'sklearn_svm')
 
@@ -14,7 +14,5 @@ def model_name(model_name):
 
 
 def features(features):
-    assert all(
+    assert features == 'all' or all(
         f in FEATURES for f in features), f'{features} contains an invalid feature. Valid features are: {FEATURES}'
-    assert len(
-        features) == 2, f'There must be exactly 2 features, but features={features}'

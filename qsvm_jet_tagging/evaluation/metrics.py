@@ -2,31 +2,37 @@ import argparse
 import logging
 import os
 
-from common import utils
+from common import persistence, utils
 from sklearn.externals import joblib
+from training.run import Run
 
 
-def print_metrics(run_path):
+def print_metrics(run):
 
-    print(f'Printing metrics for run at {run_path}.')
+    print(f'Printing metrics for run at {run.run_path}.')
 
-    # Load settings from the config.
-    model_name, features, train_size, test_size, seed = utils.load_run_config_settings(
-        run_path)
-
-    # Load the model and result from the run.
-    model, result = utils.load_model(run_path)
-
-    # Print the testing accuracy of the model.
-    testing_accuracy = result['testing_accuracy']
+    testing_accuracy = run.result['testing_accuracy']
     print(f'\tTesting accuracy = {testing_accuracy}')
 
-    if model_name in ('qsvm_kernel', 'svm_classical'):
-        support = result['svm']['support_vectors'].shape[0]
-        print(f'\tsupport = {support}/{train_size}')
-    elif model_name == 'sklearn_svm':
-        support = len(model.best_estimator_.named_steps['svc'].support_)
-        print(f'\tsupport = {support}/{train_size}')
+    if run.model_name in ('qsvm_kernel', 'svm_classical'):
+        support = run.result['svm']['support_vectors'].shape[0]
+        print(f'\tsupport = {support}/{run.train_size}')
+    elif run.model_name == 'sklearn_svm':
+        support = len(run.model.best_estimator_.named_steps['model'].support_)
+        print(f'\tsupport = {support}/{run.train_size}')
+
+    X_train, y_train, _, _ = run.get_train_test_datasets()
+
+    if 'training_accuracy' not in run.result:
+        training_accuracy = run.model.score(X_train, y_train)
+        run.result['training_accuracy'] = training_accuracy
+        run.save()
+    else:
+        training_accuracy = run.result['training_accuracy']
+    print(f'\tTraining accuracy = {training_accuracy}')
+
+    print(f'\tTraining time = {run.result["training_time"]}')
+    print(f'\tTesting time = {run.result["testing_time"]}')
 
 
 def main():
@@ -38,11 +44,11 @@ def main():
     args = parser.parse_args()
 
     if args.run is None:
-        run_path = utils.most_recent_run_path()
+        run = Run.most_recent()
     else:
-        run_path = os.path.join(utils.get_results_path(), args.run)
+        run = Run(args.run)
 
-    print_metrics(run_path)
+    print_metrics(run)
 
 
 if __name__ == '__main__':

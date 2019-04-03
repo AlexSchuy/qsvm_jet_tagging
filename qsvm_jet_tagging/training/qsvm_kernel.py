@@ -47,8 +47,8 @@ class QSVMKernelClassifier(BaseEstimator, ClassifierMixin):
     def predict(self, X):
         # Check if fit has been called
         check_is_fitted(self, ['impl_'])
-
-        return self.impl_.predict(X)
+        y = self.impl_.predict(X)
+        return y
 
     def ret(self):
         return self.impl_.ret
