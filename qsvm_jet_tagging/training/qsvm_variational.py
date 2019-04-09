@@ -50,7 +50,7 @@ class QSVMVariationalClassifier(BaseEstimator, ClassifierMixin):
         return self
 
     def decision_function(self, X):
-        return self.impl_.predict(X)[0][:, 0]
+        return self.impl_.predict(X)[0][:, 1]
 
     def predict(self, X):
         return self.impl_.predict(X)[1]

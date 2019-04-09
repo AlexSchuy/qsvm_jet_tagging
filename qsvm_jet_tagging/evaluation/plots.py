@@ -20,7 +20,10 @@ def plot_roc_curve(run):
 
     if 'roc_curve_plot' in run.result:
         img = plt.imread(run.result['roc_curve_plot'])
-        plt.imshow(img)
+        fig, ax = plt.subplots()
+        ax.axis('off')
+        ax.imshow(img)
+        plt.show()
     else:
         _, _, X_test, y_test = run.get_train_test_datasets()
 
