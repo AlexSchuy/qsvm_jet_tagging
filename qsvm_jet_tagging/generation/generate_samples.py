@@ -84,11 +84,29 @@ def CalcEECorr(jet, n=1, beta=1.0):
     return eec
 
 
-def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
-    # If the samples already exist in a file, simply return them.
+def generate_samples(gen_type='qcd', n=10, pt_cut=None, excess_factor=None, debug=False, recalculate=False):
+    assert pt_cut is None or pt_cut in (
+        'low', 'high'), f'invalid pt_cut={pt_cut}'
     code_dir = utils.get_source_path()
     project_dir = utils.get_project_path()
-    filename = os.path.join(project_dir, 'samples', f'{gen_type}_{n}.pkl')
+    if pt_cut is not None:
+        pythia_config = os.path.join(
+            code_dir, 'pythia_config', f'{gen_type}_{pt_cut}.cmnd')
+        if excess_factor is None:
+            excess_factor = 1.5
+        if pt_cut == 'low':
+            pt_min = 250
+            pt_max = 500
+        elif pt_cut == 'high':
+            pt_min = 1000
+            pt_max = 1200
+        filename = os.path.join(project_dir, 'samples',
+                                f'{gen_type}_{n}_pt_{pt_min}_{pt_max}.pkl')
+    else:
+        pythia_config = os.path.join(
+            code_dir, 'pythia_config', f'{gen_type}.cmnd')
+        excess_factor = 1
+        filename = os.path.join(project_dir, 'samples', f'{gen_type}_{n}.pkl')
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     if not recalculate and os.path.exists(filename):
         if debug:
@@ -96,14 +114,13 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
         return pd.read_pickle(filename)
 
     start = time.time()
-    print(f'Generating {gen_type} with {n} events.')
+    print(f'Generating {gen_type} with {excess_factor*n} events.')
     assert gen_type == 'qcd' or gen_type == 'higgs', f'gen_type must be one of [qcd, higgs] but was {gen_type}.'
 
-    pythia_config = os.path.join(code_dir, 'pythia_config', f'{gen_type}.cmnd')
     pythia = Pythia(config=pythia_config, random_state=1)
 
     final_jets = []
-    for event in progressbar.progressbar(pythia(events=n), max_value=n):
+    for event in progressbar.progressbar(pythia(events=excess_factor*n), max_value=excess_factor*n):
 
         # Run jet finding.
         jets = pyjet.cluster(event.all((STATUS == 1) & (STATUS == 1)), R=1.0,
@@ -150,6 +167,14 @@ def generate_samples(gen_type='qcd', n=10, debug=False, recalculate=False):
     # Save the final jets to a file.
     final_jets = pd.DataFrame(data=final_jets, columns=[
                               'pt', 'eta', 'phi', 'mass', 'ee2', 'ee3', 'd2'])
+    if pt_cut is not None:
+        final_jets = final_jets[(final_jets['pt'] > pt_min)
+                                & (final_jets['pt'] < pt_max)]
+        if final_jets.shape[0] < n:
+            raise RuntimeError(
+                f'excess factor was insufficient, less than {n} events ({final_jets.shape[0]}) were generated satisfying specified pt cut.')
+        final_jets = final_jets[:n]
+        final_jets.reset_index(inplace=True, drop=True)
     final_jets.to_pickle(filename)
 
     print("==========================")
@@ -181,10 +206,12 @@ if __name__ == '__main__':
                         'qcd', 'higgs'], help='The type of events to generate.')
     parser.add_argument(
         'n', type=int, help='The number of events to generate.')
+    parser.add_argument('--pt_cut', choices=['low', 'high'],
+                        help='If set, apply pt cut on data (low = [250, 500] GeV, high = [1000, 1200] GeV).')
     parser.add_argument('--recalculate', action='store_true',
                         help='If set, ignore cached files and regenerate.')
     parser.add_argument('--debug', action='store_true',
                         help='If set, print debug info.')
     args = parser.parse_args()
-    generate_samples(args.gen_type, args.n,
-                     recalculate=args.recalculate, debug=args.debug)
+    jets = generate_samples(args.gen_type, args.n,
+                            recalculate=args.recalculate, debug=args.debug, pt_cut=args.pt_cut)
