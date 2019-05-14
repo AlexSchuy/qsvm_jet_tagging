@@ -6,6 +6,7 @@ is higgs/QCD jet kinematics, and is generated using pythia and fastjet.
 
 import argparse
 import glob
+import math
 import operator
 import os
 import time
@@ -18,6 +19,17 @@ import progressbar
 import pyjet
 from common import utils
 from numpythia import PDG_ID, STATUS, Pythia
+
+
+def CalcDeltaRArray(p, a):
+    dEta = p['eta'] - \
+        a['eta'].repeat(p.shape[0]).reshape(a.shape[0], p.shape[0])
+    dPhi = np.abs(p['phi'] - a['phi'].repeat(p.shape[0]
+                                             ).reshape(a.shape[0], p.shape[0]))
+    mask = dPhi > np.pi
+    dPhi[mask] *= -1
+    dPhi[mask] += 2 * np.pi
+    return (dPhi**2 + dEta**2)**0.5
 
 
 def CalcDeltaR(j1, j2):
@@ -82,6 +94,60 @@ def CalcEECorr(jet, n=1, beta=1.0):
 
         eec = currentSum/(jet.pt)**3
     return eec
+
+
+def angle(jet, particles):
+    ptot2 = (jet.px**2 + jet.py**2 + jet.pz**2) * \
+        (particles['px']**2 + particles['py']**2 + particles['pz']**2)
+    arg = (jet.px * particles['px'] + jet.py *
+           particles['py'] + jet.pz * particles['pz']) / ptot2**(1/2)
+    arg[np.isnan(arg)] = 1.0
+    arg[arg > 1.0] = 1.0
+    arg[arg < -1.0] = -1.0
+    return np.arccos(arg)
+
+
+def calc_angularity(jet):
+    jet_particles = jet.constituents_array(ep=True)
+
+    if jet_particles.shape[0] == 0:
+        return -1
+    if jet.mass < 1.e-20:
+        return -1
+
+    theta = angle(jet, jet_particles)
+    e_theta = jet_particles['E'] * np.sin(theta)**-2 * (1 - np.cos(theta))**3
+
+    return np.sum(e_theta) / jet.mass
+
+
+@lru_cache(maxsize=1)
+def t0(jet):
+    return sum(p.pt * CalcDeltaR(p, jet) for p in jet.constituents())
+
+
+def tn(jet, n):
+    assert n >= 0
+    if n == 0:
+        return t0(jet)
+    particles = jet.constituents_array()
+    if len(particles) < n:
+        return -1
+    subjets = pyjet.cluster(particles, R=1.0, p=1).exclusive_jets(n)
+    subjets_array = [subjet.constituents_array() for subjet in subjets]
+    wta_axes = [a[np.argmax(a['pT'])] for a in subjets_array]
+    wta_axes = np.array(wta_axes, dtype=subjets_array[0].dtype)
+    return np.sum(particles['pT']*CalcDeltaRArray(particles, wta_axes).min(axis=0)) / t0(jet)
+
+
+def calc_KtDeltaR(jet):
+    particles = jet.constituents_array()
+    if particles.shape[0] < 2:
+        return 0.0
+
+    subjets = pyjet.cluster(particles, R=0.4, p=1).exclusive_jets(2)
+
+    return CalcDeltaR(subjets[0], subjets[1])
 
 
 def generate_samples(gen_type='qcd', n=10, pt_cut=None, excess_factor=None, debug=False, recalculate=False):
@@ -161,12 +227,22 @@ def generate_samples(gen_type='qcd', n=10, pt_cut=None, excess_factor=None, debu
         ee3 = CalcEECorr(found_jet, n=3, beta=1.0)
         d2 = ee3/ee2**3
 
+        angularity = calc_angularity(found_jet)
+
+        t1 = tn(found_jet, n=1)
+        t2 = tn(found_jet, n=2)
+        t3 = tn(found_jet, n=3)
+        t21 = t2 / t1
+        t32 = t3 / t2
+
+        KtDeltaR = calc_KtDeltaR(found_jet)
+
         final_jets.append([found_jet.pt, found_jet.eta,
-                           found_jet.phi, found_jet.mass, ee2, ee3, d2])
+                           found_jet.phi, found_jet.mass, ee2, ee3, d2, angularity, t1, t2, t3, t21, t32, KtDeltaR])
 
     # Save the final jets to a file.
     final_jets = pd.DataFrame(data=final_jets, columns=[
-                              'pt', 'eta', 'phi', 'mass', 'ee2', 'ee3', 'd2'])
+                              'pt', 'eta', 'phi', 'mass', 'ee2', 'ee3', 'd2', 'angularity', 't1', 't2', 't3', 't21', 't32', 'KtDeltaR'])
     if pt_cut is not None:
         final_jets = final_jets[(final_jets['pt'] > pt_min)
                                 & (final_jets['pt'] < pt_max)]
