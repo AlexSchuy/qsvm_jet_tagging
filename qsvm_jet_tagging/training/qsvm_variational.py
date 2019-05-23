@@ -1,11 +1,11 @@
 import numpy as np
 from common import utils
 from qiskit import Aer
-from qiskit_aqua import QuantumInstance
-from qiskit_aqua.algorithms import QSVMVariational
-from qiskit_aqua.components.feature_maps import SecondOrderExpansion
-from qiskit_aqua.components.optimizers import SPSA
-from qiskit_aqua.components.variational_forms import RYRZ
+from qiskit.aqua import QuantumInstance
+from qiskit.aqua.algorithms import VQC
+from qiskit.aqua.components.feature_maps import SecondOrderExpansion
+from qiskit.aqua.components.optimizers import SPSA
+from qiskit.aqua.components.variational_forms import RYRZ
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
@@ -21,7 +21,7 @@ class QSVMVariationalClassifier(BaseEstimator, ClassifierMixin):
 
         # Map the features to qubits.
         feature_map = SecondOrderExpansion(
-            num_qubits=self.feature_dim_, depth=2, entanglement='linear')
+            feature_dimension=self.feature_dim_, depth=2, entanglement='linear')
 
         # Setup the optimizer (use fixed settings for now).
         optimizer = SPSA(max_trials=100, c0=4.0, skip_calibration=True)
@@ -32,13 +32,13 @@ class QSVMVariationalClassifier(BaseEstimator, ClassifierMixin):
 
         # Build the qsvm.
         training_dataset = utils.make_qiskit_style_dataset(X, y)
-        self.impl_ = QSVMVariational(
+        self.impl_ = VQC(
             optimizer, feature_map, var_form, training_dataset)
 
         # Set the quantum instance.
         backend = Aer.get_backend('qasm_simulator')
         quantum_instance = QuantumInstance(
-            backend, shots=1024, seed=self.seed, seed_mapper=self.seed)
+            backend, shots=1024, seed=self.seed, seed_transpiler=self.seed)
         self.impl_._quantum_instance = quantum_instance
 
     def fit(self, X, y):

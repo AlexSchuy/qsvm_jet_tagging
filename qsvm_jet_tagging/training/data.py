@@ -8,7 +8,7 @@ from sklearn.externals import joblib
 from sklearn.model_selection import train_test_split
 
 
-def get_train_test_datasets(features='mass,d2', train_size=100, test_size=900, seed=10598, style='qiskit', dataset='higgs_tagging'):
+def get_train_test_datasets(features='mass,d2', train_size=100, test_size=900, seed=10598, style='qiskit', dataset='higgs_tagging', pt_cut=None):
     assert (train_size >
             0), f'train_size must be greater than 0, but is "{train_size}".'
     assert (
@@ -29,9 +29,9 @@ def get_train_test_datasets(features='mass,d2', train_size=100, test_size=900, s
 
         n = train_size + test_size
         X_background = load_samples(
-            gen_type='qcd', n=n//2)[features].to_numpy()
+            gen_type='qcd', n=n//2, pt_cut=pt_cut)[features].to_numpy()
         X_signal = load_samples(
-            gen_type='higgs', n=(n-n//2))[features].to_numpy()
+            gen_type='higgs', n=(n-n//2), pt_cut=pt_cut)[features].to_numpy()
         y_background = np.zeros(X_background.shape[0])
         y_signal = np.ones(X_signal.shape[0])
 

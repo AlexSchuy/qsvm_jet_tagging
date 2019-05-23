@@ -9,6 +9,7 @@ import glob
 import math
 import operator
 import os
+import re
 import time
 from functools import lru_cache, reduce
 from itertools import combinations
@@ -150,29 +151,44 @@ def calc_KtDeltaR(jet):
     return CalcDeltaR(subjets[0], subjets[1])
 
 
-def generate_samples(gen_type='qcd', n=10, pt_cut=None, excess_factor=None, debug=False, recalculate=False):
-    assert pt_cut is None or pt_cut in (
-        'low', 'high'), f'invalid pt_cut={pt_cut}'
-    code_dir = utils.get_source_path()
+def get_pt_range(pt_cut):
+    if pt_cut == 'low':
+        return (250, 500)
+    elif pt_cut == 'high':
+        return (1000, 1200)
+
+
+def get_filename(gen_type, n, pt_cut):
     project_dir = utils.get_project_path()
     if pt_cut is not None:
-        pythia_config = os.path.join(
-            code_dir, 'pythia_config', f'{gen_type}_{pt_cut}.cmnd')
-        if excess_factor is None:
-            excess_factor = 1.5
-        if pt_cut == 'low':
-            pt_min = 250
-            pt_max = 500
-        elif pt_cut == 'high':
-            pt_min = 1000
-            pt_max = 1200
+        pt_min, pt_max = get_pt_range(pt_cut)
         filename = os.path.join(project_dir, 'samples',
                                 f'{gen_type}_{n}_pt_{pt_min}_{pt_max}.pkl')
     else:
+        filename = os.path.join(project_dir, 'samples', f'{gen_type}_{n}.pkl')
+    return filename
+
+
+def get_pythia_config(gen_type, pt_cut):
+    code_dir = utils.get_source_path()
+    if pt_cut is not None:
+        pythia_config = os.path.join(
+            code_dir, 'pythia_config', f'{gen_type}_{pt_cut}.cmnd')
+    else:
         pythia_config = os.path.join(
             code_dir, 'pythia_config', f'{gen_type}.cmnd')
+    return pythia_config
+
+
+def generate_samples(gen_type='qcd', n=10, pt_cut=None, excess_factor=None, debug=False, recalculate=False):
+    assert pt_cut is None or pt_cut in (
+        'low', 'high'), f'invalid pt_cut={pt_cut}'
+    pythia_config = get_pythia_config(gen_type, pt_cut)
+    filename = get_filename(gen_type, n, pt_cut)
+    if excess_factor is None and pt_cut is not None:
+        excess_factor = 1.5
+    else:
         excess_factor = 1
-        filename = os.path.join(project_dir, 'samples', f'{gen_type}_{n}.pkl')
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     if not recalculate and os.path.exists(filename):
         if debug:
@@ -232,8 +248,8 @@ def generate_samples(gen_type='qcd', n=10, pt_cut=None, excess_factor=None, debu
         t1 = tn(found_jet, n=1)
         t2 = tn(found_jet, n=2)
         t3 = tn(found_jet, n=3)
-        t21 = t2 / t1
-        t32 = t3 / t2
+        t21 = t2 / t1 if t1 > 0.0 else 0.0
+        t32 = t3 / t2 if t2 > 0.0 else 0.0
 
         KtDeltaR = calc_KtDeltaR(found_jet)
 
@@ -261,18 +277,26 @@ def generate_samples(gen_type='qcd', n=10, pt_cut=None, excess_factor=None, debu
     return final_jets
 
 
-def load_samples(gen_type='qcd', n=1000):
+def load_samples(gen_type='qcd', n=1000, pt_cut=None):
     # Find the largest sample file
-    code_dir = utils.get_source_path()
     project_dir = utils.get_project_path()
-    pattern = os.path.join(project_dir, 'samples', f'{gen_type}_*.pkl')
-    sample_paths = glob.glob(pattern)
-    max_size = max(int(os.path.splitext(os.path.split(p)[1])[
-                   0].split('_')[1]) for p in sample_paths)
+    if pt_cut is None:
+        pattern = re.compile(os.path.join(
+            project_dir, 'samples', f'{gen_type}_([0-9]+)'))
+    else:
+        pt_min, pt_max = get_pt_range(pt_cut)
+        pattern = re.compile(f'{gen_type}_([0-9]+)_pt_{pt_min}_{pt_max}')
+    sample_paths = [os.path.splitext(os.path.split(p)[1])[0] for p in glob.glob(
+        os.path.join(project_dir, 'samples', '*.pkl'))]
+    max_size = -1
+    for p in sample_paths:
+        m = pattern.search(p)
+        if m:
+            max_size = max(max_size, int(m.group(1)))
     if max_size >= n:
-        samples = generate_samples(gen_type, max_size)
+        samples = generate_samples(gen_type, max_size, pt_cut)
         return samples.iloc[:n]
-    return generate_samples(gen_type, n)
+    return generate_samples(gen_type, n, pt_cut)
 
 
 if __name__ == '__main__':

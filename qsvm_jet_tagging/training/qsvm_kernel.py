@@ -1,14 +1,13 @@
 """QSVM Kernel Classifier
-Simple sklearn interface for the Qiskit QSVMKernel.
+Simple sklearn interface for the Qiskit QSVM.
 """
 
 from common import utils
 from qiskit import Aer
-from qiskit_aqua import QuantumInstance, run_algorithm, set_aqua_logging
-from qiskit_aqua.algorithms import QSVMKernel
-from qiskit_aqua.components.feature_maps import SecondOrderExpansion
-from qiskit_aqua.input import SVMInput
-from qiskit_aqua.utils import (map_label_to_class_name,
+from qiskit.aqua import QuantumInstance, run_algorithm
+from qiskit.aqua.algorithms import QSVM
+from qiskit.aqua.components.feature_maps import SecondOrderExpansion
+from qiskit.aqua.utils import (map_label_to_class_name,
                                split_dataset_to_data_and_labels)
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
@@ -25,16 +24,16 @@ class QSVMKernelClassifier(BaseEstimator, ClassifierMixin):
 
         # Map the features to qubits.
         feature_map = SecondOrderExpansion(
-            num_qubits=X.shape[1], depth=2, entanglement='linear')
+            feature_dimension=X.shape[1], depth=2, entanglement='linear')
 
         # Build the qsvm.
         training_dataset = utils.make_qiskit_style_dataset(X, y)
-        self.impl_ = QSVMKernel(feature_map, training_dataset)
+        self.impl_ = QSVM(feature_map, training_dataset)
 
         # Run the qsvm on the backend (for now, a simulator).
         backend = Aer.get_backend('qasm_simulator')
         quantum_instance = QuantumInstance(
-            backend, shots=1024, seed=self.seed, seed_mapper=self.seed)
+            backend, shots=1024, seed=self.seed, seed_transpiler=self.seed)
         self.impl_.run(quantum_instance, print_info=True)
         return self
 

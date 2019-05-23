@@ -43,7 +43,7 @@ class Run():
         return cls(run_number)
 
     def get_train_test_datasets(self, style='sklearn'):
-        return data.get_train_test_datasets(self.features, self.train_size, self.test_size, self.seed, style, self.dataset)
+        return data.get_train_test_datasets(self.features, self.train_size, self.test_size, self.seed, style, self.dataset, self.pt_cut)
 
     @property
     def run_path(self):
@@ -64,6 +64,8 @@ class Run():
     @classmethod
     def _most_recent_run_number(cls):
         results_path = utils.get_results_path()
+        if not os.path.exists(results_path):
+            return -1
         return max((int(d) for d in os.listdir(results_path) if os.path.isdir(os.path.join(results_path, d))), default=-1)
 
     @classmethod

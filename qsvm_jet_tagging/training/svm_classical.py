@@ -1,6 +1,6 @@
 import numpy as np
 from common import utils
-from qiskit_aqua.algorithms import SVM_Classical
+from qiskit.aqua.algorithms import SVM_Classical
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 

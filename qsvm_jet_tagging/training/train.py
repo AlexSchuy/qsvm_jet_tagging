@@ -83,14 +83,14 @@ def make_model(model_name, seed, pca):
         raise NotImplementedError()
 
 
-def train_model(model_name, features, train_size, test_size, seed, pca, dataset):
+def train_model(model_name, features, train_size, test_size, seed, pca, dataset, pt_cut):
     validate.model_name(model_name)
     assert train_size > 0, f'train_size must be greater than 0, but is "{train_size}".'
     assert test_size > 0, f'test_size must be greater than 0, but is "{test_size}".'
 
     # Train the model.
     X_train, y_train, X_test, y_test = get_train_test_datasets(
-        features, train_size, test_size, seed=seed, style='sklearn', dataset=dataset)
+        features, train_size, test_size, seed=seed, style='sklearn', dataset=dataset, pt_cut=pt_cut)
     model = make_model(model_name, seed=seed, pca=pca)
     start = time.time()
     model.fit(X_train, y_train)
@@ -119,7 +119,7 @@ def train_model(model_name, features, train_size, test_size, seed, pca, dataset)
 
 def add_default_settings(config):
     defaults = {'features': 'mass,d2', 'train_size': 100,
-                'test_size': 100, 'seed': 10598, 'pca': 0, 'dataset': 'higgs_tagging'}
+                'test_size': 100, 'seed': 10598, 'pca': 0, 'dataset': 'higgs_tagging', 'pt_cut': 'low'}
     for k, v in defaults.items():
         if k not in config:
             config[k] = v
